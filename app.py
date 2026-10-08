@@ -1,5 +1,5 @@
 """
-Generador de echadas Full Color — imposición offset (rotativa, formato tabloide)
+Generador de echadas Full Color — imposición offset (rotativa)
 Ejecutar:  streamlit run app.py
 
 La app CALCULA cada echada con su propio motor (echadas/generador.py): tiradas, pliegos F/A,
@@ -194,7 +194,7 @@ st.markdown(f"""
     <h1>Generador de echadas Full Color</h1>
     <p>Imposición offset · tiradas, pliegos F/A, LADO 10/13, cuadrantes ALTO/BAJO y página de cada posición.</p>
   </div>
-  <div class="chips"><span class="chip">Tabloide</span><span class="chip">Rotativa</span></div>
+  <div class="chips"><span class="chip">Rotativa</span></div>
 </div>
 """, unsafe_allow_html=True)
 
