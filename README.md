@@ -7,7 +7,6 @@ página de cada posición. No necesita ningún Excel ni base de datos.
 ## Instalación (una sola vez)
 Requiere Python 3.10 o superior.
 ```bash
-cd echadas_app
 python -m venv .venv
 # Windows:  .venv\Scripts\activate      Linux/Mac:  source .venv/bin/activate
 pip install -r requirements.txt
