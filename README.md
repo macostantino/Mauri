@@ -25,7 +25,8 @@ Para usarla desde otras PCs: `streamlit run app.py --server.address 0.0.0.0` →
    separados por "+" (por ejemplo 4+4+4+4). Cada cuerpo en múltiplos de 4 y la suma igual al total.
 2. En "Cuerpos" puede renombrar cada cuerpo (Tapa, Suple 1…) y elegir su figura.
 3. **Bobinas** (selector junto a los cuerpos): Entera (tiradas de 32), Media 24 (F entera + A media
-   banda, tiradas de 24) o Media 16 (F y A en media banda, solo BAJO, tiradas de 16).
+   banda, tiradas de 24), Media 16 (F y A en media banda, solo BAJO, tiradas de 16) o Combinada
+   (las tiradas que indique van en banda entera de 32 y el resto en Media 24 o Media 16).
 4. Exporte PDF para taller o Excel estructurado, o envíe ambos a una carpeta de red.
 
 ## Reglas del motor (echadas/generador.py)
@@ -41,3 +42,11 @@ Para usarla desde otras PCs: `streamlit run app.py --server.address 0.0.0.0` →
   24 (24→F{0-3}+A{0,2}), tiradas de 24. *Media 16* = F y A en media banda, solo columnas BAJO:
   4→F{3} · 8→F{2,3} · 12→F{2,3}+A{2} · 16→F{2,3}+A{2,3}, tiradas de 16. En ambos la última tirada lleva
   el resto, el orden de hojas y caras es el mismo y las tiradas de 8 no llevan REPITE.
+- **Combinada**: se indican los números de tirada en banda entera (ej. `1` o `1,3`) y el tipo de media
+  banda para las demás. Cada tirada toma su máximo (32 o 24/16) en orden y la última lleva el resto
+  (ej. 80 págs., entera la 1, resto Media 24 → 32 | 24 | 24).
+
+## Apariencia
+- Tema y colores: `.streamlit/config.toml` (verde #077C50 / turquesa #3AB3C4). Fuente Inter (si no hay internet,
+  usa la fuente del sistema).
+- Logo: `assets/logo.png` (encabezado, barra lateral y pie) y `assets/icono.png` (pestaña del navegador).

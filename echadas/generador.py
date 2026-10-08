@@ -21,6 +21,9 @@ Modelo de la rotativa (deducido de las planillas de referencia y verificado cont
                (24 → F{0..3} A{0,2}); tiradas de 24, la última con el resto.
   - "media16": F y A en media banda (solo columnas BAJO 2 y 3):
                4 → F{3}  8 → F{3,2}  12 → F{3,2} A{2}  16 → F{3,2} A{3,2}; tiradas de 16.
+  - COMBINADA: las tiradas indicadas (por número, p. ej. {1} o {1, 3}) van en banda entera (32) y el
+               resto en media banda 24 o 16. Las tiradas se arman en orden: cada una toma su máximo
+               y la última lleva el resto (ej. 80 con {1} + media24 → 32 | 24 | 24).
   En media banda las tiradas de 8 no llevan REPITE. Orden de hojas y caras: mismas reglas.
 * Tiradas: se llenan de 32 en 32; la última lleva el resto. Los cuerpos consumen hojas en orden,
   pasando de una tirada a la siguiente (un cuerpo puede repartirse entre tiradas: "32 de 36").
@@ -171,11 +174,24 @@ class Echada:
     tiradas: list
     colocaciones: list
     avisos: list = field(default_factory=list)
-    bobinas: str = "entera"
+    bobinas: str = "entera"          # tipo general (en combinada: el de las tiradas en media banda)
+    enteras: tuple = ()              # combinada: números de tirada en banda entera
 
     @property
     def media_banda(self):
         return self.bobinas != "entera"
+
+    @property
+    def combinada(self):
+        return bool(self.enteras) and self.bobinas != "entera"
+
+    @property
+    def descripcion_bobinas(self):
+        if self.combinada:
+            nums = ", ".join(str(n) for n in self.enteras)
+            return (f"Combinada: tirada{'s' if len(self.enteras) > 1 else ''} {nums} en banda entera (32) + "
+                    f"resto en {BOBINAS[self.bobinas][0]}")
+        return BOBINAS[self.bobinas][0] + f" · tiradas de hasta {BOBINAS[self.bobinas][1]} págs."
 
     @property
     def total(self):
@@ -199,17 +215,42 @@ def parse_config(texto: str) -> list[int]:
     return [int(p) for p in partes]
 
 
-def plan_tiradas(total: int, bobinas="entera") -> list[int]:
-    mx = max_tirada(bobinas)
-    if total <= mx:
-        return [total]
-    n, resto = divmod(total, mx)
-    return [mx] * n + ([resto] if resto else [])
+def parse_enteras(texto) -> tuple:
+    """'1' / '1,3' / '1 3' -> (1, 3). Vacío -> ()."""
+    if texto is None:
+        return ()
+    if isinstance(texto, (list, tuple, set)):
+        nums = [int(x) for x in texto]
+    else:
+        partes = [p for p in re.split(r"[+\s,;y]+", str(texto).strip()) if p]
+        if not all(p.isdigit() for p in partes):
+            raise ValueError("Tiradas en banda entera: escriba números de tirada, por ejemplo 1 o 1,3.")
+        nums = [int(p) for p in partes]
+    if any(n < 1 for n in nums):
+        raise ValueError("Tiradas en banda entera: los números de tirada empiezan en 1.")
+    return tuple(sorted(set(nums)))
+
+
+def bobinas_de_tirada(numero: int, bobinas="entera", enteras=()) -> str:
+    return "entera" if numero in enteras else _norm_bobinas(bobinas)
+
+
+def plan_tiradas(total: int, bobinas="entera", enteras=()) -> list[int]:
+    """Cada tirada toma su máximo (32 entera, 24/16 media banda) y la última lleva el resto."""
+    enteras = parse_enteras(enteras)
+    out, resto, i = [], total, 1
+    while resto > 0:
+        cap = max_tirada(bobinas_de_tirada(i, bobinas, enteras))
+        out.append(min(resto, cap))
+        resto -= out[-1]
+        i += 1
+    return out
 
 
 def generar(cuerpos: list[Cuerpo] | list[int] | str, tiradas: list[int] | None = None,
-            bobinas="entera", media_banda: bool = False) -> Echada:
+            bobinas="entera", media_banda: bool = False, enteras=()) -> Echada:
     bobinas = _norm_bobinas(True if media_banda else bobinas)
+    enteras = parse_enteras(enteras) if bobinas != "entera" else ()
     if isinstance(cuerpos, str):
         cuerpos = parse_config(cuerpos)
     cuerpos = [c if isinstance(c, Cuerpo) else Cuerpo(int(c)) for c in cuerpos]
@@ -220,26 +261,33 @@ def generar(cuerpos: list[Cuerpo] | list[int] | str, tiradas: list[int] | None =
         if not c.nombre:
             c.nombre = "Tapa" if i == 0 and len(cuerpos) > 1 else (f"Cuerpo {i + 1}" if len(cuerpos) > 1 else "Único")
     total = sum(c.paginas for c in cuerpos)
-    sizes = tiradas or plan_tiradas(total, bobinas)
-    sizes_ok, mx = sorted(layouts(bobinas)), max_tirada(bobinas)
+    sizes = tiradas or plan_tiradas(total, bobinas, enteras)
     if sum(sizes) != total:
         raise ValueError(f"Las tiradas suman {sum(sizes)} y los cuerpos {total}.")
+    sobran = [n for n in enteras if n > len(sizes)]
+    if sobran:
+        avisos.append(f"Combinada: la{'s' if len(sobran) > 1 else ''} tirada{'s' if len(sobran) > 1 else ''} "
+                      f"{', '.join(map(str, sobran))} no existe{'n' if len(sobran) > 1 else ''} "
+                      f"(hay {len(sizes)}); se ignora.")
+        enteras = tuple(n for n in enteras if n <= len(sizes))
 
     # secuencia global de hojas (web, col) por tirada
     tir_objs, secuencia = [], []
     for ti, size in enumerate(sizes, start=1):
         if size % 4:
             raise ValueError(f"Tirada {ti}: {size} págs. no es múltiplo de 4.")
-        formato = next((s for s in sizes_ok if s >= size), None)
+        bob_t = bobinas_de_tirada(ti, bobinas, enteras)
+        mx = max_tirada(bob_t)
+        formato = next((s for s in sorted(layouts(bob_t)) if s >= size), None)
         if formato is None:
             raise ValueError(f"Tirada {ti}: {size} págs. supera el máximo de {mx}"
-                             + (f" con {BOBINAS[bobinas][0].lower()}." if bobinas != "entera" else "."))
+                             + (f" con {BOBINAS[bob_t][0].lower()}." if bob_t != "entera" else "."))
         if formato != size:
             avisos.append(f"Tirada {ti}: {size} págs. no tiene formato propio; se usa el de {formato} "
                           f"dejando {(formato - size) // 4} hoja(s) en blanco (sin plantilla de referencia).")
-        t = Tirada(numero=ti, paginas=size, formato=formato, bobinas=bobinas)
+        t = Tirada(numero=ti, paginas=size, formato=formato, bobinas=bob_t)
         tir_objs.append(t)
-        for web, col in leaf_order(formato, bobinas)[: size // 4]:
+        for web, col in leaf_order(formato, bob_t)[: size // 4]:
             secuencia.append((ti, web, col))
 
     colocaciones = []
@@ -262,7 +310,7 @@ def generar(cuerpos: list[Cuerpo] | list[int] | str, tiradas: list[int] | None =
                 colocaciones.append(Colocacion(ti, web, cara, col, "top", ci, arriba, j))
                 colocaciones.append(Colocacion(ti, web, cara, col, "bot", ci, n + 1 - arriba, j))
     return Echada(cuerpos=cuerpos, tiradas=tir_objs, colocaciones=colocaciones, avisos=avisos,
-                  bobinas=bobinas)
+                  bobinas=bobinas, enteras=enteras)
 
 
 def figuras_por_defecto(n: int) -> list[str]:

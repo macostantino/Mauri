@@ -114,7 +114,8 @@ def tirada_drawing(ech: Echada, t: Tirada, repite_8: bool = True) -> Drawing:
 
 
 def tirada_titulo(ech: Echada, t: Tirada) -> str:
-    base = f"Tirada {t.numero} · {t.paginas} págs." + ({"media24": " · MEDIA BANDA 24", "media16": " · MEDIA BANDA 16"}.get(t.bobinas, ""))
+    base = f"Tirada {t.numero} · {t.paginas} págs." + ({"media24": " · MEDIA BANDA 24", "media16": " · MEDIA BANDA 16"}.get(
+        t.bobinas, " · BANDA ENTERA" if ech.combinada else ""))
     desc = t.descripcion(ech.cuerpos)
     partes = []
     for ci, n in t.contenido:

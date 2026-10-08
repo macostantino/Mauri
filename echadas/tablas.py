@@ -28,7 +28,7 @@ def resumen(ech: Echada) -> list[tuple[str, str]]:
         ("Tiradas", " | ".join(f"{t.paginas}" for t in ech.tiradas) + f"  ({len(ech.tiradas)})"),
         ("Pliegos (webs)", str(sum(len(t.webs) for t in ech.tiradas))),
         ("Hojas de 4 págs.", str(ech.total // 4)),
-        ("Bobinas", BOBINAS[ech.bobinas][0] + f" · tiradas de hasta {BOBINAS[ech.bobinas][1]} págs."),
+        ("Bobinas", ech.descripcion_bobinas),
     ]
 
 
