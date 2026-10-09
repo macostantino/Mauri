@@ -26,7 +26,7 @@ Para usarla desde otras PCs: `streamlit run app.py --server.address 0.0.0.0` →
 3. **Bobinas** (selector junto a los cuerpos): Entera (tiradas de 32), Media 24 (F entera + A media
    banda, tiradas de 24), Media 16 (F y A en media banda, solo BAJO, tiradas de 16) o Combinada
    (las tiradas que indique van en banda entera de 32 y el resto en Media 24 o Media 16).
-4. Exporte PDF para taller o Excel estructurado, o envíe ambos a una carpeta de red.
+4. Exporte PDF para taller o Excel estructurado.
 
 ## Reglas del motor (echadas/generador.py)
 - Cada hoja del producto (tira) lleva 4 páginas: en la cara impar p arriba y N+1-p abajo; en la otra

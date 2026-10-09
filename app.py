@@ -7,7 +7,6 @@ LADO 10/13, cuadrantes ALTO/BAJO y la página de cada posición. No lee ningún 
 """
 from __future__ import annotations
 
-import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -179,8 +178,6 @@ with st.sidebar:
     opt_sigs = st.checkbox("PDF: casilleros de firma", value=True)
     opt_img = st.checkbox("Excel: incluir imagen del plano", value=True)
     opt_rep = st.checkbox("Tiradas de 8 págs.: marcar REPITE", value=True)
-    out_dir = st.text_input("Carpeta de red para envío (opcional)", value=os.environ.get("ECHADAS_SALIDA", ""),
-                            placeholder=r"\\servidor\imposicion  o  C:\Planos")
 
 
 # --------------------------------------------------------------------------- #
@@ -289,7 +286,7 @@ base = safe(f"Echada_{ech.total}p_{ech.config.replace('+', '-')}" + (("_COMB" if
             + f"_{datetime.now():%Y%m%d}")
 with st.container(border=True):
     st.markdown("<div class='seccion'>Exportar</div>", unsafe_allow_html=True)
-    e1, e2, e3 = st.columns([1, 1, 1.4])
+    e1, e2 = st.columns(2)
     pdf = build_pdf(ech, job, page=pdf_page, orientation=pdf_orient, include_grid=opt_grid,
                     include_signatures=opt_sigs, repite_8=opt_rep)
     xls = build_xlsx(ech, job, include_image=opt_img, repite_8=opt_rep)
@@ -297,16 +294,6 @@ with st.container(border=True):
                        type="primary", width="stretch")
     e2.download_button("Descargar Excel estructurado", xls, file_name=f"{base}.xlsx", width="stretch",
                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    if e3.button("Enviar a carpeta de red (PDF + Excel)", width="stretch", disabled=not out_dir):
-        try:
-            dest = Path(out_dir)
-            dest.mkdir(parents=True, exist_ok=True)
-            stamp = datetime.now().strftime("%H%M%S")
-            (dest / f"{base}_{stamp}.pdf").write_bytes(pdf)
-            (dest / f"{base}_{stamp}.xlsx").write_bytes(xls)
-            st.success(f"Guardado en {dest}")
-        except Exception as ex:
-            st.error(f"No se pudo guardar en '{out_dir}': {ex}")
 
 # --------------------------------------------------------------------------- #
 # Pestañas
