@@ -4,12 +4,15 @@ from __future__ import annotations
 import io
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A3, A4, landscape, portrait
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import (CondPageBreak, Flowable, KeepTogether, Paragraph, SimpleDocTemplate, Spacer,
                                 Table, TableStyle)
@@ -54,7 +57,21 @@ class PlanFlowable(Flowable):
         draw_reportlab(self.canv, self.d, 0, self.height, self.scale)
 
 
+LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "logo.png"
+PIE_TEXTO = "Generador de echadas Full Color · by "
+PIE_MARCA = "nosotros"
+
+
+def _logo_reader():
+    try:
+        return ImageReader(str(LOGO_PATH)) if LOGO_PATH.exists() else None
+    except Exception:  # un logo ilegible no debe impedir generar el PDF
+        return None
+
+
 def _canvas_factory(footer_left: str, footer_2: str):
+    logo = _logo_reader()
+
     class NumberedCanvas(rl_canvas.Canvas):
         def __init__(self, *a, **k):
             super().__init__(*a, **k)
@@ -69,17 +86,39 @@ def _canvas_factory(footer_left: str, footer_2: str):
             for st in self._saved:
                 self.__dict__.update(st)
                 w, _ = self._pagesize
+                right = w - 12 * mm
                 self.saveState()
                 self.setStrokeColor(RULE)
                 self.setLineWidth(0.5)
-                self.line(12 * mm, 11 * mm, w - 12 * mm, 11 * mm)
+                self.line(12 * mm, 11 * mm, right, 11 * mm)
+
+                # Marca (derecha): logo de la empresa + "Generador de echadas Full Color · by nosotros"
+                x_txt = right
+                if logo is not None:
+                    lh = 8 * mm
+                    iw, ih = logo.getSize()
+                    lw = lh * iw / ih
+                    self.drawImage(logo, right - lw, 2.2 * mm, width=lw, height=lh, mask="auto")
+                    x_txt = right - lw - 2 * mm
+                self.setFont("Helvetica-Bold", 7)
+                self.setFillColor(INK)
+                self.drawRightString(x_txt, 7.5 * mm, PIE_MARCA)
                 self.setFont("Helvetica", 7)
                 self.setFillColor(MUTED)
-                self.drawString(12 * mm, 7.5 * mm, footer_left[:150])
-                self.drawString(12 * mm, 4.5 * mm, footer_2[:150])
+                self.drawRightString(x_txt - stringWidth(PIE_MARCA, "Helvetica-Bold", 7), 7.5 * mm, PIE_TEXTO)
                 self.setFont("Helvetica-Bold", 8)
                 self.setFillColor(INK)
-                self.drawRightString(w - 12 * mm, 6 * mm, f"Página {self._pageNumber} de {n}")
+                self.drawRightString(x_txt, 4.2 * mm, f"Página {self._pageNumber} de {n}")
+                brand_w = stringWidth(PIE_TEXTO, "Helvetica", 7) + stringWidth(PIE_MARCA, "Helvetica-Bold", 7)
+
+                # Texto izquierdo: se recorta si llegara a pisar la marca
+                self.setFont("Helvetica", 7)
+                self.setFillColor(MUTED)
+                max_w = (x_txt - brand_w) - 12 * mm - 4 * mm
+                for txt, y in ((footer_left[:150], 7.5 * mm), (footer_2[:150], 4.5 * mm)):
+                    while len(txt) > 1 and stringWidth(txt, "Helvetica", 7) > max_w:
+                        txt = txt[:-2].rstrip() + "…"
+                    self.drawString(12 * mm, y, txt)
                 self.restoreState()
                 super().showPage()
             super().save()
