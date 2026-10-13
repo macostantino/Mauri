@@ -21,13 +21,38 @@ def composicion(ech: Echada) -> list[dict]:
     return filas
 
 
-def resumen(ech: Echada) -> list[tuple[str, str]]:
+COLORES = 4  # Full Color (CMYK): una chapa por color
+
+
+def chapas_tirada(ech: Echada, t, repite_8: bool = True) -> int:
+    """Chapas por color de una tirada: cada cuadrante (ALTO/BAJO) de cada cara de cada pliego que lleve al
+    menos una página es una chapa de 4 págs. Con REPITE (tirada de 8) se montan también las de ALTO."""
+    cuadrantes = {(p.web, p.cara, pos_info(p.cara, p.col)[0]) for p in ech.colocaciones if p.tirada == t.numero}
+    if repite_8 and t.puede_repetir:
+        cuadrantes |= {(w, c, "ALTO") for (w, c, _) in cuadrantes}
+    return len(cuadrantes)
+
+
+def chapas(ech: Echada, repite_8: bool = True) -> list[tuple[int, int]]:
+    """[(chapas por color, chapas totales)] por tirada."""
+    return [(n, n * COLORES) for n in (chapas_tirada(ech, t, repite_8) for t in ech.tiradas)]
+
+
+def texto_chapas(ech: Echada, repite_8: bool = True) -> str:
+    ch = chapas(ech, repite_8)
+    total = sum(x[1] for x in ch)
+    det = " | ".join(str(x[1]) for x in ch)
+    return f"{total}  ({det}; {sum(x[0] for x in ch)} por color × {COLORES} colores)"
+
+
+def resumen(ech: Echada, repite_8: bool = True) -> list[tuple[str, str]]:
     return [
         ("Total de páginas", str(ech.total)),
         ("Combinación de cuerpos", ech.config),
         ("Tiradas", " | ".join(f"{t.paginas}" for t in ech.tiradas) + f"  ({len(ech.tiradas)})"),
         ("Pliegos (webs)", str(sum(len(t.webs) for t in ech.tiradas))),
         ("Hojas de 4 págs.", str(ech.total // 4)),
+        ("Chapas", texto_chapas(ech, repite_8)),
         ("Bobinas", ech.descripcion_bobinas),
     ]
 

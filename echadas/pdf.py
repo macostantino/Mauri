@@ -172,7 +172,7 @@ def build_pdf(ech: Echada, job: Job, *, page="A4", orientation="Vertical", inclu
     jobs = [("Publicación / Producto", job.publicacion), ("Edición / Fecha", job.edicion),
             ("Orden de trabajo", job.orden), ("Responsable", job.responsable), ("Destino / Sección", job.destino)]
     colw = (aw - 6 * mm) / 2
-    two = Table([[kv([(k, v or "—") for k, v in jobs], colw), kv(resumen(ech), colw)]],
+    two = Table([[kv([(k, v or "—") for k, v in jobs], colw), kv(resumen(ech, repite_8), colw)]],
                 colWidths=[colw + 3 * mm] * 2)
     two.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
                              ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm)]))

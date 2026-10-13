@@ -20,7 +20,7 @@ from echadas.generador import (BOBINAS, FIGURAS, GEOM, Cuerpo, figuras_por_defec
                                parse_enteras, plan_tiradas)
 from echadas.pdf import Job, build_pdf
 from echadas.render import Drawing, to_svg
-from echadas.tablas import ABBR, composicion, grilla, posiciones
+from echadas.tablas import ABBR, COLORES, chapas, composicion, grilla, posiciones
 
 APP_DIR = Path(__file__).resolve().parent
 CACHE_DIR = APP_DIR / ".cache"
@@ -325,12 +325,17 @@ except ValueError as ex:
 # --------------------------------------------------------------------------- #
 # Resumen + exportación
 # --------------------------------------------------------------------------- #
-m = st.columns(4)
+m = st.columns(5)
 m[0].metric("Total", f"{ech.total} págs.")
 m[1].metric("Cuerpos", str(len(ech.cuerpos)))
 m[2].metric("Tiradas", str(len(ech.tiradas)), delta=" | ".join(str(t.paginas) for t in ech.tiradas),
             delta_color="off", delta_arrow="off")
 m[3].metric("Pliegos", str(sum(len(t.webs) for t in ech.tiradas)))
+_ch = chapas(ech, opt_rep)
+m[4].metric("Chapas", str(sum(x[1] for x in _ch)), delta=" | ".join(str(x[1]) for x in _ch),
+            delta_color="off", delta_arrow="off",
+            help=f"Chapas de 4 págs. × {COLORES} colores, por tirada. Se cuenta cada cuadrante ALTO/BAJO usado "
+                 "de cada cara de cada pliego; con REPITE también las de ALTO.")
 if ech.media_banda:
     detalle_t = " | ".join(f"{t.paginas}{' (entera)' if ech.combinada and t.bobinas == 'entera' else ''}"
                            for t in ech.tiradas)

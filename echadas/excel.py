@@ -76,7 +76,7 @@ def build_xlsx(ech: Echada, job, *, include_image=True, repite_8=True, control: 
         kv(k, v or "—")
     r += 1
     section("Resumen técnico (generado)")
-    for k, v in resumen(ech):
+    for k, v in resumen(ech, repite_8):
         kv(k, v)
     for t in ech.tiradas:
         titulo, detalle = tirada_titulo(ech, t)
