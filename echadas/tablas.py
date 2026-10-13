@@ -41,8 +41,8 @@ def chapas(ech: Echada, repite_8: bool = True) -> list[tuple[int, int]]:
 def texto_chapas(ech: Echada, repite_8: bool = True) -> str:
     ch = chapas(ech, repite_8)
     total = sum(x[1] for x in ch)
-    det = " | ".join(str(x[1]) for x in ch)
-    return f"{total}  ({det}; {sum(x[0] for x in ch)} por color × {COLORES} colores)"
+    det = " · ".join(f"Tirada {i}: {x[1]}" for i, x in enumerate(ch, 1))
+    return f"{total}: {det}"
 
 
 def resumen(ech: Echada, repite_8: bool = True) -> list[tuple[str, str]]:
