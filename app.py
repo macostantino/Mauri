@@ -14,13 +14,13 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from echadas.dibujo import tirada_drawing, tirada_titulo
+from echadas.dibujo import FILL, tirada_drawing, tirada_titulo
 from echadas.excel import build_xlsx
-from echadas.generador import (BOBINAS, FIGURAS, Cuerpo, figuras_por_defecto, generar, parse_config,
+from echadas.generador import (BOBINAS, FIGURAS, GEOM, Cuerpo, figuras_por_defecto, generar, parse_config,
                                parse_enteras, plan_tiradas)
 from echadas.pdf import Job, build_pdf
-from echadas.render import to_svg
-from echadas.tablas import composicion, grilla, posiciones
+from echadas.render import Drawing, to_svg
+from echadas.tablas import ABBR, composicion, grilla, posiciones
 
 APP_DIR = Path(__file__).resolve().parent
 CACHE_DIR = APP_DIR / ".cache"
@@ -136,6 +136,13 @@ _CSS = """
   .plan { background:#fff; border:1px solid var(--borde); border-top:0; border-radius: 0 0 14px 14px; padding: 14px;
           overflow-x:auto; box-shadow: var(--sombra); }
 
+  /* ---------- figuras con color ---------- */
+  .leyenda-fig { display:flex; flex-wrap:wrap; gap:8px; margin: 10px 0 14px; }
+  .chip-fig { display:inline-flex; align-items:center; gap:7px; padding: 3px 11px 3px 5px; border-radius: 999px;
+              font-size: .82rem; color: #14211C; background:#fff; border: 2px solid; margin: 3px 6px 0 0; }
+  .chip-fig svg { flex: 0 0 auto; }
+  .band-head div.det { display:flex; flex-wrap:wrap; }
+
   /* ---------- pie ---------- */
   .pie { margin-top: 36px; padding: 18px 0 6px; border-top: 1px solid var(--borde); display:flex;
          align-items:center; justify-content:center; gap:10px; color: var(--gris); font-size:.85rem; }
@@ -236,6 +243,52 @@ if sum(paginas) != total:
     st.error(f"Los cuerpos suman {sum(paginas)} págs. pero el total indicado es {total}.")
     st.stop()
 
+# --------------------------------------------------------------- colores de figuras (solo visual)
+# mismos colores y formas que el plano (echadas/dibujo.py: FILL, GEOM)
+def color_figura(fig: str) -> str | None:
+    return FILL.get(fig)
+
+
+def icono_figura(fig: str, size: int = 26) -> str:
+    """SVG chico de la figura con su color, dibujado con el mismo motor que el plano."""
+    if fig in GEOM:
+        ops = [("shape", GEOM[fig], 2, 2, 36, 30, FILL.get(fig, "#FFFFFF"), "#111111", 1.4, "", 12, True, "#111111")]
+    else:
+        ops = [("text", 20, 24, "n", 18, True, False, "#111111", "middle")]
+    svg = to_svg(Drawing(width=40, height=34, ops=ops))
+    return svg.replace("background:#fff", "background:transparent").replace(
+        "max-width:42px;width:100%", f"width:{size}px;max-width:{size}px")
+
+
+def _oscurecer(hexcol: str, f: float = 0.72) -> str:
+    h = hexcol.lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return "#%02X%02X%02X" % (int(r * f), int(g * f), int(b * f))
+
+
+def chip_cuerpo(nombre: str, fig: str, extra: str = "") -> str:
+    c = color_figura(fig) or "#D1D5DB"
+    return (f"<span class='chip-fig' style='border-color:{_oscurecer(c)};background:{c}22'>{icono_figura(fig, 22)}"
+            f"<span><b>{nombre}</b> · {fig}{extra}</span></span>")
+
+
+def estilo_figura(v) -> str:
+    c = color_figura(v)
+    if not c:
+        return ""
+    borde = "box-shadow: inset 0 0 0 1px #9CA3AF;" if c.upper() == "#FFFFFF" else ""
+    return f"background-color: {c}; color: #14211C; font-weight: 600; {borde}"
+
+
+_FIG_POR_LETRA = {v: k for k, v in ABBR.items()}
+
+
+def estilo_celda(v) -> str:
+    """Celdas de las grillas de posiciones ('12 [T]'): color de la figura indicada entre corchetes."""
+    m = re.search(r"\[(\w)\]", str(v))
+    return estilo_figura(_FIG_POR_LETRA.get(m.group(1), "")) if m else ""
+
+
 # editor de cuerpos (nombre + figura)
 key = "cuerpos_" + "+".join(map(str, paginas))
 df0 = pd.DataFrame({"Cuerpo": nombres_por_defecto(len(paginas)), "Figura": figuras_por_defecto(len(paginas)),
@@ -248,6 +301,9 @@ with entrada.expander("Cuerpos: nombres y figuras (editable)", expanded=len(pagi
             "Figura": st.column_config.SelectboxColumn("Figura", options=FIGURAS, required=True),
             "Págs.": st.column_config.NumberColumn("Págs.", disabled=True),
         })
+    st.markdown("<div class='leyenda-fig'>" + "".join(
+        chip_cuerpo(str(r["Cuerpo"]), str(r["Figura"]), f" · {int(r['Págs.'])} págs.")
+        for _, r in df.iterrows()) + "</div>", unsafe_allow_html=True)
     tir_txt = st.text_input("Tiradas (opcional, avanzado)", value="",
                             placeholder="Automático: " + "+".join(map(str, plan_tiradas(total, bobinas, enteras))),
                             help="Por defecto se llenan tiradas de 32 págs. (24 o 16 en media banda; en combinada "
@@ -298,6 +354,14 @@ with st.container(border=True):
 # --------------------------------------------------------------------------- #
 # Pestañas
 # --------------------------------------------------------------------------- #
+def detalle_chips(ech, t) -> str:
+    partes = []
+    for ci, n in t.contenido:
+        c = ech.cuerpos[ci]
+        partes.append(chip_cuerpo(c.nombre, c.figura, f": {n}" + ("" if n == c.paginas else f" de {c.paginas}")))
+    return "".join(partes)
+
+
 tab_plan, tab_comp = st.tabs(["Plano generado", "Composición y posiciones"])
 
 with tab_plan:
@@ -312,7 +376,7 @@ with tab_plan:
             tags += "<span class='tag rep'>REPITE</span>"
         tit = titulo.replace(" · MEDIA BANDA 24", "").replace(" · MEDIA BANDA 16", "").replace(" · BANDA ENTERA", "")
         st.markdown(f"<div class='band-head'><span class='num'>{t.numero}</span><div><b>{tit}</b>"
-                    f"<div class='det'>{detalle}</div></div>{tags}</div>", unsafe_allow_html=True)
+                    f"<div class='det'>{detalle_chips(ech, t)}</div></div>{tags}</div>", unsafe_allow_html=True)
         d = tirada_drawing(ech, t, opt_rep)
         st.markdown(f"<div class='plan'>{to_svg(d, max_width=int(d.width * 1.35))}</div>", unsafe_allow_html=True)
     st.caption("Las tiradas se muestran como en las planillas: de la última a la primera (tapa). "
@@ -320,13 +384,15 @@ with tab_plan:
 
 with tab_comp:
     st.subheader("Composición")
-    st.dataframe(pd.DataFrame(composicion(ech)), hide_index=True, width="stretch")
+    st.dataframe(pd.DataFrame(composicion(ech)).style.map(estilo_figura, subset=["Figura"]),
+                 hide_index=True, width="stretch")
     st.subheader("Posiciones por pliego")
     for t in ech.tiradas:
         for web in t.webs:
             headers, rows = grilla(ech, t.numero, web)
             st.markdown(f"**Tirada {t.numero} · pliego {web}**")
-            st.dataframe(pd.DataFrame(rows, columns=headers, index=["Superior", "Inferior"]), width="stretch")
+            st.dataframe(pd.DataFrame(rows, columns=headers, index=["Superior", "Inferior"]).style.map(estilo_celda),
+                         width="stretch")
     with st.expander("Tabla completa de posiciones"):
         st.dataframe(pd.DataFrame(posiciones(ech)), hide_index=True, width="stretch")
 
